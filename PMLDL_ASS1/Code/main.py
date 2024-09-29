@@ -213,13 +213,13 @@ if __name__ == '__main__':
                                 plt.tight_layout()
                                 plt.axis('off')
                                 plt.title('NN version')
-                                plt.imshow(val_image.numpy().transpose((1, 2, 0)), cmap='gray')
+                                plt.imshow(val_image.cpu().numpy().transpose((1, 2, 0)), cmap='gray')
 
                                 fig.add_subplot(1, 2, 2)
                                 plt.tight_layout()
                                 plt.axis('off')
                                 plt.title('Original')
-                                plt.imshow(test_image.numpy().transpose((1, 2, 0)), cmap='gray')
+                                plt.imshow(test_image.cpu().numpy().transpose((1, 2, 0)), cmap='gray')
 
                                 plt.show()
 
