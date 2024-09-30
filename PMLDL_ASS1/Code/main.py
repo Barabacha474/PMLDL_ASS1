@@ -10,100 +10,43 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 class ColorizationNet(nn.Module):
-    def __init__(self, img_size, dropout_rate=0.5, chunk_size = 3):
+    def __init__(self, img_size, dropout_rate=0.5):
         super(ColorizationNet, self).__init__()
 
         self.img_size = img_size
         self.dropout_rate = dropout_rate
-        self.chunk_size = chunk_size
 
+        # Encoder
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 8, kernel_size=3, padding=1), #256
+            nn.Conv2d(1, 16, kernel_size=3,padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2), # 128
-            nn.Dropout(p=self.dropout_rate),
-            nn.Conv2d(8, 16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2), # 64
-            nn.Dropout(p=self.dropout_rate),
+            nn.Dropout(p=dropout_rate),
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2), #32
+            nn.Dropout(p=dropout_rate),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Dropout(p=dropout_rate),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.Conv2d(64, 3, kernel_size=3, padding=1),
         )
 
-        self.fc_layers = nn.Sequential(
-            nn.Linear(32 * 32 * 32 + 2 + 1 * chunk_size * chunk_size, 3 * chunk_size * chunk_size + 256),
-            nn.ReLU(),
-            nn.Dropout(p=self.dropout_rate),
-            nn.Linear(3 * chunk_size * chunk_size + 256, 3 * chunk_size * chunk_size + 128),
-            nn.ReLU(),
-            nn.Dropout(p=self.dropout_rate),
-            nn.Linear(3 * chunk_size * chunk_size + 128, 3 * chunk_size * chunk_size),
-        )
 
     def forward(self, x):
-        tensor_device = x.device
 
-        x_conv = self.conv_layers(x)
+        lumen = x.clone().unsqueeze(0)
 
-        x_conv = torch.flatten(x_conv, 0)
+        colors = self.conv_layers(lumen)
 
-        # original_lumen = x.clone().cpu().detach().numpy()
+        colors = colors.squeeze(0)
 
-        output = None
+        colors += x
 
-        for i in range(0, self.img_size, self.chunk_size):
-            for j in range(0, self.img_size, self.chunk_size):
-                chunk = x[:, i : i + self.chunk_size, j : j + self.chunk_size]
-                chunk = torch.flatten(chunk, 0)
+        colorized_image = torch.sigmoid(colors)
 
-                position = np.array([i , j])
-                position = torch.from_numpy(position)
-                position = torch.flatten(position, 0)
-
-                position = position.to(tensor_device)
-                chunk = chunk.to(tensor_device)
-
-                fc_input = torch.cat([x_conv, position, chunk], 0)
-
-                fc_chunk_output = self.fc_layers(fc_input)
-                fc_chunk_output = torch.sigmoid(fc_chunk_output)
-                fc_chunk_output.reshape(3, self.chunk_size, self.chunk_size)
-
-                if output is None:
-                    output = fc_chunk_output.clone()
-                else:
-                    output = torch.cat((output, fc_chunk_output), 0)
-
-                # fc_chunk_output = fc_chunk_output.reshape(3, self.chunk_size, self.chunk_size)
-
-                # r_or = fc_chunk_output[0].cpu().detach()
-                # g_or = fc_chunk_output[0].cpu().detach()
-                # b_or = fc_chunk_output[0].cpu().detach()
-                #
-                # r = torch.sigmoid(fc_chunk_output[0].cpu().detach()).numpy()
-                # g = torch.sigmoid(fc_chunk_output[1].cpu().detach()).numpy()
-                # b = torch.sigmoid(fc_chunk_output[2].cpu().detach()).numpy()
-                #
-                # original_lumen_chunk = original_lumen[0, i:i + self.chunk_size, j:j + self.chunk_size]
-                # nn_lumen_chunk = 0.2989 * r + 0.5870 * g + 0.1140 * b
-                #
-                # coef = original_lumen_chunk / nn_lumen_chunk
-                # r = r_or * coef
-                # g = g_or * coef
-                # b = b_or * coef
-                #
-                # r = torch.sigmoid(r).to(tensor_device)
-                # g = torch.sigmoid(g).to(tensor_device)
-                # b = torch.sigmoid(b).to(tensor_device)
-                #
-                # output[0, i:i + self.chunk_size, j:j + self.chunk_size] = r.clone()
-                # output[1, i:i + self.chunk_size, j:j + self.chunk_size] = g.clone()
-                # output[2, i:i + self.chunk_size, j:j + self.chunk_size] = b.clone()
-
-        output = output.reshape(3, self.img_size, self.img_size)
-
-        return output
+        return colorized_image
 
 if __name__ == '__main__':
     print("[*] Loading data...")
@@ -142,7 +85,7 @@ if __name__ == '__main__':
     print("[*] Data split.")
 
     plot_load_image_flag = False
-    plot_train_image_flag = True
+    plot_train_image_flag = False
     plot_val_image_flag = True
 
     if plot_load_image_flag:
@@ -175,14 +118,12 @@ if __name__ == '__main__':
 
     print("[*] Creating model...")
 
-    image_chunk_size = 32
-
-    model = ColorizationNet(image_size, chunk_size=image_chunk_size)
+    model = ColorizationNet(image_size)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.MSELoss()
 
-    num_epochs = 1
+    num_epochs = 5
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -218,10 +159,11 @@ if __name__ == '__main__':
                 outputs = []
                 test_images = []
 
-                plot_counter = 0
-                max_plot_counter = 2
+                train_plot_counter = 0
+                train_max_plot_counter = 2
 
-                fig_train = plt.figure(figsize=(3 * 10, max_plot_counter * 10))
+                if plot_train_image_flag:
+                    fig_train = plt.figure(figsize=(3 * 10, train_max_plot_counter * 10))
 
                 for img_index in img_indexes:
                     tr_image = train_dataset[img_index][0].to(device)
@@ -233,30 +175,30 @@ if __name__ == '__main__':
                     test_images.append(tst_image)
 
                     if plot_train_image_flag:
-                        if plot_counter < max_plot_counter:
+                        if train_plot_counter < train_max_plot_counter:
                             train_grayscale_image = tr_image.clone()
                             nn_image = output.clone()
                             original_image = tst_image.clone()
 
-                            fig_train.add_subplot(max_plot_counter, 3, plot_counter * 3 + 1)
+                            fig_train.add_subplot(train_max_plot_counter, 3, train_plot_counter * 3 + 1)
                             plt.tight_layout()
                             plt.axis('off')
                             plt.title('Grayscale')
                             plt.imshow(train_grayscale_image.cpu().detach().numpy().transpose((1, 2, 0)), cmap='gray')
 
-                            fig_train.add_subplot(max_plot_counter, 3, plot_counter * 3 + 2)
+                            fig_train.add_subplot(train_max_plot_counter, 3, train_plot_counter * 3 + 2)
                             plt.tight_layout()
                             plt.axis('off')
                             plt.title('NN version')
                             plt.imshow(nn_image.cpu().detach().numpy().transpose((1, 2, 0)), cmap='gray')
 
-                            fig_train.add_subplot(max_plot_counter, 3, plot_counter * 3 + 3)
+                            fig_train.add_subplot(train_max_plot_counter, 3, train_plot_counter * 3 + 3)
                             plt.tight_layout()
                             plt.axis('off')
                             plt.title('Original')
                             plt.imshow(original_image.cpu().detach().numpy().transpose((1, 2, 0)), cmap='gray')
 
-                            plot_counter += 1
+                            train_plot_counter += 1
 
                 if plot_train_image_flag:
                     plt.title(f"Epoch {epoch}, batch {k}")
@@ -284,10 +226,11 @@ if __name__ == '__main__':
                     outputs = []
                     test_images = []
 
-                    plot_counter = 0
-                    max_plot_counter = 3
+                    val_plot_counter = 0
+                    val_max_plot_counter = 3
 
-                    fig_val = plt.figure(figsize=(3 * 10, max_plot_counter * 10))
+                    if plot_val_image_flag:
+                        fig_val = plt.figure(figsize=(3 * 10, val_max_plot_counter * 10))
 
                     for img_index in img_indexes:
                         train_val_image = train_dataset[img_index][0].to(device)
@@ -296,30 +239,31 @@ if __name__ == '__main__':
                         output = model(train_val_image)
 
                         if plot_val_image_flag:
-                            if plot_counter < max_plot_counter :
-                                plot_counter += 1
+                            if val_plot_counter < val_max_plot_counter :
 
                                 val_grayscale_image = train_val_image.clone()
                                 nn_image = output.clone()
                                 original_image = test_val_image.clone()
 
-                                fig_val.add_subplot(max_plot_counter, 3, plot_counter * 3 + 1)
+                                fig_val.add_subplot(val_max_plot_counter, 3, val_plot_counter * 3 + 1)
                                 plt.tight_layout()
                                 plt.axis('off')
                                 plt.title('Grayscale')
                                 plt.imshow(val_grayscale_image.cpu().detach().numpy().transpose((1, 2, 0)), cmap='gray')
 
-                                fig_val.add_subplot(max_plot_counter, 3, plot_counter * 3 + 2)
+                                fig_val.add_subplot(val_max_plot_counter, 3, val_plot_counter * 3 + 2)
                                 plt.tight_layout()
                                 plt.axis('off')
                                 plt.title('NN version')
                                 plt.imshow(nn_image.cpu().numpy().transpose((1, 2, 0)), cmap='gray')
 
-                                fig_val.add_subplot(max_plot_counter, 3, plot_counter * 3 + 3)
+                                fig_val.add_subplot(val_max_plot_counter, 3, val_plot_counter * 3 + 3)
                                 plt.tight_layout()
                                 plt.axis('off')
                                 plt.title('Original')
                                 plt.imshow(original_image.cpu().numpy().transpose((1, 2, 0)), cmap='gray')
+
+                                val_plot_counter += 1
 
                         outputs.append(output)
                         test_images.append(test_val_image)
