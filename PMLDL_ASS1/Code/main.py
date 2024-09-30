@@ -1,5 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
+from sympy.stats.sampling.sample_numpy import numpy
 from torch import optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
@@ -8,55 +10,100 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 class ColorizationNet(nn.Module):
-    def __init__(self, img_size, dropout_rate=0.5):
+    def __init__(self, img_size, dropout_rate=0.5, chunk_size = 3):
         super(ColorizationNet, self).__init__()
 
+        self.img_size = img_size
         self.dropout_rate = dropout_rate
+        self.chunk_size = chunk_size
 
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, padding=1), #256
+            nn.Conv2d(1, 8, kernel_size=3, padding=1), #256
             nn.ReLU(),
             nn.MaxPool2d(2), # 128
             nn.Dropout(p=self.dropout_rate),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.Conv2d(8, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2), # 64
             nn.Dropout(p=self.dropout_rate),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2), #32
         )
 
         self.fc_layers = nn.Sequential(
-            nn.Linear(128 * 32 * 32 + 1 * img_size * img_size, 2056),
+            nn.Linear(32 * 32 * 32 + 2 + 1 * chunk_size * chunk_size, 3 * chunk_size * chunk_size + 256),
             nn.ReLU(),
             nn.Dropout(p=self.dropout_rate),
-            nn.Linear(2056, 3 * img_size * img_size),
+            nn.Linear(3 * chunk_size * chunk_size + 256, 3 * chunk_size * chunk_size + 128),
+            nn.ReLU(),
+            nn.Dropout(p=self.dropout_rate),
+            nn.Linear(3 * chunk_size * chunk_size + 128, 3 * chunk_size * chunk_size),
         )
 
     def forward(self, x):
+        tensor_device = x.device
+
         x_conv = self.conv_layers(x)
 
-        # print(x_conv.shape)
-        # print(x.shape)
-
         x_conv = torch.flatten(x_conv, 0)
-        x = torch.flatten(x, 0)
 
-        # print(x_conv.shape)
-        # print(x.shape)
+        # original_lumen = x.clone().cpu().detach().numpy()
 
-        x = torch.cat([x_conv, x], dim=0)
+        output = None
 
-        x = self.fc_layers(x)
+        for i in range(0, self.img_size, self.chunk_size):
+            for j in range(0, self.img_size, self.chunk_size):
+                chunk = x[:, i : i + self.chunk_size, j : j + self.chunk_size]
+                chunk = torch.flatten(chunk, 0)
 
-        x = torch.sigmoid(x)
+                position = np.array([i , j])
+                position = torch.from_numpy(position)
+                position = torch.flatten(position, 0)
 
-        x = x.reshape(3, 256, 256)
+                position = position.to(tensor_device)
+                chunk = chunk.to(tensor_device)
 
-        # print(x.shape)
+                fc_input = torch.cat([x_conv, position, chunk], 0)
 
-        return x
+                fc_chunk_output = self.fc_layers(fc_input)
+                fc_chunk_output = torch.sigmoid(fc_chunk_output)
+                fc_chunk_output.reshape(3, self.chunk_size, self.chunk_size)
+
+                if output is None:
+                    output = fc_chunk_output.clone()
+                else:
+                    output = torch.cat((output, fc_chunk_output), 0)
+
+                # fc_chunk_output = fc_chunk_output.reshape(3, self.chunk_size, self.chunk_size)
+
+                # r_or = fc_chunk_output[0].cpu().detach()
+                # g_or = fc_chunk_output[0].cpu().detach()
+                # b_or = fc_chunk_output[0].cpu().detach()
+                #
+                # r = torch.sigmoid(fc_chunk_output[0].cpu().detach()).numpy()
+                # g = torch.sigmoid(fc_chunk_output[1].cpu().detach()).numpy()
+                # b = torch.sigmoid(fc_chunk_output[2].cpu().detach()).numpy()
+                #
+                # original_lumen_chunk = original_lumen[0, i:i + self.chunk_size, j:j + self.chunk_size]
+                # nn_lumen_chunk = 0.2989 * r + 0.5870 * g + 0.1140 * b
+                #
+                # coef = original_lumen_chunk / nn_lumen_chunk
+                # r = r_or * coef
+                # g = g_or * coef
+                # b = b_or * coef
+                #
+                # r = torch.sigmoid(r).to(tensor_device)
+                # g = torch.sigmoid(g).to(tensor_device)
+                # b = torch.sigmoid(b).to(tensor_device)
+                #
+                # output[0, i:i + self.chunk_size, j:j + self.chunk_size] = r.clone()
+                # output[1, i:i + self.chunk_size, j:j + self.chunk_size] = g.clone()
+                # output[2, i:i + self.chunk_size, j:j + self.chunk_size] = b.clone()
+
+        output = output.reshape(3, self.img_size, self.img_size)
+
+        return output
 
 if __name__ == '__main__':
     print("[*] Loading data...")
@@ -87,7 +134,7 @@ if __name__ == '__main__':
     indices = list(range(len(train_dataset)))
     train_indices, val_indices = train_test_split(indices, test_size=val_ratio, random_state=random_state)
 
-    batch_size = 34
+    batch_size = 32
 
     train_dataloader = DataLoader(train_indices, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_indices, batch_size=batch_size, shuffle=True)
@@ -128,7 +175,9 @@ if __name__ == '__main__':
 
     print("[*] Creating model...")
 
-    model = ColorizationNet(image_size)
+    image_chunk_size = 32
+
+    model = ColorizationNet(image_size, chunk_size=image_chunk_size)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_fn = nn.MSELoss()
@@ -170,7 +219,7 @@ if __name__ == '__main__':
                 test_images = []
 
                 plot_counter = 0
-                max_plot_counter = 1
+                max_plot_counter = 2
 
                 fig_train = plt.figure(figsize=(3 * 10, max_plot_counter * 10))
 
