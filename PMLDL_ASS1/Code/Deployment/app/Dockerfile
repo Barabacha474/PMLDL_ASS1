@@ -1,5 +1,7 @@
 FROM streamlit/base
 
+WORKDIR Code/Deployment/app
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 

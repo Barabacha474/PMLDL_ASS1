@@ -205,8 +205,12 @@ if __name__ == '__main__':
 
     print('Finished Training')
 
-    PATH = 'Models/Best_model.pt'
-    torch.save(net.state_dict(), PATH)
+    try:
+        PATH = 'PMLDL_ASS1\Models\Best_model.pt'
+        torch.save(net.state_dict(), PATH)
+    except:
+        PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
+        torch.save(net.state_dict(), PATH)
 
     dataiter = iter(testloader)
     images, labels = next(dataiter)

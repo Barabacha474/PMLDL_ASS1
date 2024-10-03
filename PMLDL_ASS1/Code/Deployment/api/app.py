@@ -22,7 +22,7 @@ def hello():
 async def predict_image(data: ImageData):
     try:
         # Decode the base64 image
-        image_data = base64.b64decode(data.image.split(',')[1])
+        image_data = base64.b64decode(data.image)
         image = Image.open(io.BytesIO(image_data))
 
         transform = transforms.Compose(
@@ -41,8 +41,12 @@ async def predict_image(data: ImageData):
         input_tensor = input_tensor.to(device)
 
         model = Model.Net()
-        PATH = 'Models/Best_model.pt'
-        model.load_state_dict(torch.load(PATH, weights_only=True))
+        try:
+            PATH = 'PMLDL_ASS1\Models\Best_model.pt'
+            model.load_state_dict(torch.load(PATH, weights_only=True))
+        except:
+            PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
+            model.load_state_dict(torch.load(PATH, weights_only=True))
         model.to(device)
 
         model.eval()

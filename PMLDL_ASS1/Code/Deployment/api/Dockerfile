@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-WORKDIR Code/Deployment/app
+WORKDIR Code/Deployment/api
 
 COPY requirements.txt .
 
