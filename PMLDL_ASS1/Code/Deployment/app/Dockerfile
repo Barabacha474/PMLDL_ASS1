@@ -1,4 +1,4 @@
-FROM streamlit/base
+FROM python:3.9-slim
 
 WORKDIR Code/Deployment/app
 
