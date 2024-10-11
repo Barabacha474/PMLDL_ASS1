@@ -1,5 +1,7 @@
-import uvicorn
-from fastapi import FastAPI, File, UploadFile
+# import uvicorn
+import sys
+
+import fastapi
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from PIL import Image
@@ -7,8 +9,10 @@ import io
 import base64
 import torch
 import torchvision.transforms as transforms
-from Code.Models import Model
-app = FastAPI()
+# sys.path.append("../Code")
+# from Code.Models import Model
+import Model
+app = fastapi.FastAPI()
 
 class ImageData(BaseModel):
     image: str
@@ -42,7 +46,8 @@ async def predict_image(data: ImageData):
 
         model = Model.Net()
         try:
-            PATH = 'PMLDL_ASS1\Models\Best_model.pt'
+            # PATH = 'Models\Best_model.pt'
+            PATH = 'Best_model.pt'
             model.load_state_dict(torch.load(PATH, weights_only=True))
         except:
             PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
@@ -72,5 +77,5 @@ async def predict_image(data: ImageData):
             status_code=500
         )
 
-if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+#if __name__ == '__main__':
+    #uvicorn.run(app, host='127.0.0.1', port=8000)

@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 pydantic
-numpy
 torch
 torchvision
 Pillow
-matplotlib
 tqdm
+matplotlib
+pybase64

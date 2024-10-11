@@ -1,12 +1,12 @@
-FROM python:3.9-slim
+FROM python:3.9-slim-buster
 
 WORKDIR Code/Deployment/app
 
 COPY requirements.txt .
+
+RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-COPY app.py .
+COPY Code/Deployment/app .
 
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py"]
+ENTRYPOINT ["streamlit", "run", "main.py"]

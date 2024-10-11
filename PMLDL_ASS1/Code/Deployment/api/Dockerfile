@@ -1,13 +1,10 @@
-FROM python:3.10-slim
+FROM python:3.9
 
-WORKDIR Code/Deployment/api
+WORKDIR /api
 
 COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
 
-COPY app.py .
-
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
