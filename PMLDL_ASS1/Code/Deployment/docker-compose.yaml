@@ -2,18 +2,18 @@ version: "3.9"
 
 services:
 
-  api:
-    build:
-      context: ./api
-    ports:
-      - "8000:8000"
-    restart: always
-
   web:
     build:
       context: ./app
     ports:
       - "8501:8501"
     restart: always
+
+  api:
+    build:
+      context: ./api
+    ports:
+      - "8000:8000"
+    restart: always
     depends_on:
-      - api
+      - web

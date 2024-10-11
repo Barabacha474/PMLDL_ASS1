@@ -1,5 +1,5 @@
 # import uvicorn
-import sys
+# import sys
 
 import fastapi
 from fastapi.responses import JSONResponse
@@ -37,22 +37,19 @@ async def predict_image(data: ImageData):
         # Preprocess the image (resize, normalize, etc.)
         preprocess_image = transform(image)
 
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
         # Convert to PyTorch tensor and move to the appropriate device
         input_tensor = preprocess_image.clone()
         input_tensor = input_tensor.unsqueeze(0) # Add batch dimension
-        input_tensor = input_tensor.to(device)
+        input_tensor = input_tensor.cpu()
 
         model = Model.Net()
-        try:
+        # try:
             # PATH = 'Models\Best_model.pt'
-            PATH = 'Best_model.pt'
-            model.load_state_dict(torch.load(PATH, weights_only=True))
-        except:
-            PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
-            model.load_state_dict(torch.load(PATH, weights_only=True))
-        model.to(device)
+        PATH = 'Best_model.pt'
+        model.load_state_dict(torch.load(PATH, weights_only=True, map_location='cpu'))
+        # except:
+        #     PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
+        #     model.load_state_dict(torch.load(PATH, weights_only=True))
 
         model.eval()
 
@@ -77,5 +74,5 @@ async def predict_image(data: ImageData):
             status_code=500
         )
 
-#if __name__ == '__main__':
-    #uvicorn.run(app, host='127.0.0.1', port=8000)
+# if __name__ == '__main__':
+#     uvicorn.run(app, host='127.0.0.1', port=8000)
