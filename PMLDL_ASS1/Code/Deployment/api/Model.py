@@ -160,14 +160,14 @@ if __name__ == '__main__':
 
     batch_size = 32
 
-    trainset = torchvision.datasets.CIFAR100(root='./Data', train=True,
+    train_set = torchvision.datasets.CIFAR100(root='./Data', train=True,
                                             download=True, transform=transform)
-    trainloader = DataLoader(trainset, batch_size=batch_size,
+    train_loader = DataLoader(train_set, batch_size=batch_size,
                                               shuffle=True, num_workers=2)
 
-    testset = torchvision.datasets.CIFAR100(root='./Data', train=False,
+    test_set = torchvision.datasets.CIFAR100(root='./Data', train=False,
                                            download=True, transform=transform)
-    testloader = DataLoader(testset, batch_size=batch_size,
+    test_loader = DataLoader(test_set, batch_size=batch_size,
                                              shuffle=False, num_workers=2)
 
     net = Net()
@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
     for epoch in range(epochs):  # loop over the dataset multiple times
 
-        train_loop = tqdm(enumerate(trainloader), total=len(trainloader), desc=f"Epoch {epoch}")
+        train_loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch}")
 
         running_loss = 0.0
         for i, data in train_loop:
@@ -212,7 +212,7 @@ if __name__ == '__main__':
         PATH = 'D:\PMLDL_ASS1\PMLDL_ASS1\Models\Best_model.pt'
         torch.save(net.state_dict(), PATH)
 
-    dataiter = iter(testloader)
+    dataiter = iter(test_loader)
     images, labels = next(dataiter)
 
     images = images.to(device)
@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
     val_loss = 0.0
     net.eval()
-    val_loop = tqdm(enumerate(testloader), total=len(testloader), desc=f"Epoch {epoch}")
+    val_loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f"Epoch {epoch}")
 
     for i, data in val_loop:
         inputs, labels = data[0].to(device), data[1].to(device)
