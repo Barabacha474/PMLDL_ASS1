@@ -1,0 +1,11 @@
+fastapi==0.128.0
+matplotlib==3.10.8
+numpy==2.4.0
+Pillow==12.0.0
+pydantic==2.12.5
+Requests==2.32.5
+streamlit==1.52.2
+torch==2.6.0+cu126
+torchvision==0.21.0+cu126
+tqdm==4.67.1
+uvicorn==0.40.0

@@ -4,8 +4,8 @@ import base64
 
 st.title("Image Classifier App")
 
-api_url = "http://api:8000/predict"
-# api_url = "http://127.0.0.1:8000/predict"
+# api_url = "http://api:8000/predict"
+api_url = "http://127.0.0.1:8000/predict"
 
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
